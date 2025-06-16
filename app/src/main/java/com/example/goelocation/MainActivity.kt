@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (missing.isEmpty()) {
-            checkGPSAndStartService()
+            checkGPSAndBackgroundPermission()
         } else {
             foregroundPermissionLauncher.launch(missing.toTypedArray())
         }
@@ -65,13 +65,41 @@ class MainActivity : AppCompatActivity() {
 
         when {
             denied.isEmpty() -> {
-                checkGPSAndStartService()
+                checkGPSAndBackgroundPermission()
             }
             permanentlyDenied.isNotEmpty() -> {
                 showSettingsDialog(permanentlyDenied)
             }
             else -> {
                 Toast.makeText(this, "Permissions denied: $denied", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun checkGPSAndBackgroundPermission() {
+        val locationRequest = LocationRequest.create()
+            .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true)
+
+        val settingsClient: SettingsClient = LocationServices.getSettingsClient(this)
+        val task = settingsClient.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            checkAndRequestBackgroundPermission()
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                try {
+                    exception.startResolutionForResult(this, 1001)
+                } catch (sendEx: Exception) {
+                    Toast.makeText(this, "Failed to prompt GPS dialog", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "GPS is unavailable or device doesn't support it", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -114,10 +142,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startGeofenceService() {
-        Toast.makeText(this, "All permissions granted!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Starting Geofence Service...", Toast.LENGTH_SHORT).show()
         val intent = Intent(this, GeofenceService::class.java).apply {
-            putExtra("latitude", 28.5782593)
-            putExtra("longitude", 77.359542)
+            putExtra("latitude", 28.5782472)
+            putExtra("longitude", 77.3596155)
         }
         ContextCompat.startForegroundService(this, intent)
     }
@@ -153,37 +181,8 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             LocationUpdateManager.locationUpdates.collectLatest { update ->
                 Log.i("MainActivityGettingData", "onReceive: ${update.latitude} ---- ${update.longitude}")
-                binding.lat.text = "latitude: "+update.latitude.toString()
-                binding.lng.text = "longitude: "+update.longitude.toString()
-
-            }
-        }
-    }
-
-    private fun checkGPSAndStartService() {
-        val locationRequest = LocationRequest.create()
-            .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-
-        val builder = LocationSettingsRequest.Builder()
-            .addLocationRequest(locationRequest)
-            .setAlwaysShow(true)
-
-        val settingsClient: SettingsClient = LocationServices.getSettingsClient(this)
-        val task = settingsClient.checkLocationSettings(builder.build())
-
-        task.addOnSuccessListener {
-            startGeofenceService()
-        }
-
-        task.addOnFailureListener { exception ->
-            if (exception is ResolvableApiException) {
-                try {
-                    exception.startResolutionForResult(this, 1001)
-                } catch (sendEx: Exception) {
-                    Toast.makeText(this, "Failed to prompt GPS dialog", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Toast.makeText(this, "GPS is unavailable or device doesn't support it", Toast.LENGTH_SHORT).show()
+                binding.lat.text = "latitude: ${update.latitude}"
+                binding.lng.text = "longitude: ${update.longitude}"
             }
         }
     }

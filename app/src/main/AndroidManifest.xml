@@ -31,5 +31,7 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <receiver android:name=".GeofenceBroadcastReceiver" android:exported="true"/>
+
     </application>
 </manifest>
